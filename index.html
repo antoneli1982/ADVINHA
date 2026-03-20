@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>🎯 Adivinha Meu Número!</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    html,body,#root{min-height:100vh;min-height:100dvh}
+    body{background:#0a0a2e;font-family:'Nunito',sans-serif;color:#fff;overflow-x:hidden}
+    input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+    input[type=number]{-moz-appearance:textfield}
+    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:3px}
+    @keyframes orbF0{from{transform:translate(0,0)}to{transform:translate(40px,-30px)}}
+    @keyframes orbF1{from{transform:translate(0,0)}to{transform:translate(-50px,40px)}}
+    @keyframes orbF2{from{transform:translate(0,0)}to{transform:translate(30px,50px)}}
+    @keyframes orbF3{from{transform:translate(0,0)}to{transform:translate(-40px,-40px)}}
+    @keyframes titleBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes scaleIn{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+    @keyframes confFall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+    @keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+    @keyframes popIn{0%{transform:scale(0)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+
+/*╔══════════════════════════════════════════════════════════╗
+  ║  🔥 FIREBASE CONFIG — SUBSTITUA COM SEU PROJETO         ║
+  ║  1. Vá em console.firebase.google.com                    ║
+  ║  2. Crie ou use um projeto existente                     ║
+  ║  3. Ative Authentication > Anonymous                     ║
+  ║  4. Crie Realtime Database (modo teste)                  ║
+  ║  5. Copie a config aqui embaixo                          ║
+  ╚══════════════════════════════════════════════════════════╝*/
+const firebaseConfig = {
+  apiKey: "SUA_API_KEY_AQUI",
+  authDomain: "SEU_PROJETO.firebaseapp.com",
+  databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+  projectId: "SEU_PROJETO",
+  storageBucket: "SEU_PROJETO.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:xxxxxxxxxxxxxxxxxx"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+const auth=firebase.auth();
+
+/* ─── CONSTANTS ────────────────────────── */
+const C={bg:"#0a0a2e",card:"#1a1a4e",a1:"#ff6b6b",a2:"#ffd93d",a3:"#6bcb77",a4:"#4d96ff",a5:"#ff6bff",a6:"#6bfff2",text:"#fff",tm:"#a0a0cc",sf:"rgba(255,255,255,0.06)"};
+const TC=[
+  {bg:"linear-gradient(135deg,#ff6b6b,#ee5a24)",glow:"rgba(255,107,107,0.4)",s:"#ff6b6b"},
+  {bg:"linear-gradient(135deg,#4d96ff,#0652DD)",glow:"rgba(77,150,255,0.4)",s:"#4d96ff"},
+  {bg:"linear-gradient(135deg,#6bcb77,#009432)",glow:"rgba(107,203,119,0.4)",s:"#6bcb77"},
+  {bg:"linear-gradient(135deg,#ff6bff,#9b59b6)",glow:"rgba(255,107,255,0.4)",s:"#ff6bff"},
+  {bg:"linear-gradient(135deg,#ffd93d,#f39c12)",glow:"rgba(255,217,61,0.4)",s:"#ffd93d"},
+  {bg:"linear-gradient(135deg,#6bfff2,#00b894)",glow:"rgba(107,255,242,0.4)",s:"#6bfff2"},
+];
+const AVS=[
+  {id:"cool_cat",name:"Gato Malandro",bg:"#ff6b6b",svg:'<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="35" fill="#ff6b6b"/><polygon points="22,30 30,55 15,55" fill="#ff6b6b"/><polygon points="78,30 70,55 85,55" fill="#ff6b6b"/><circle cx="50" cy="55" r="30" fill="#ffb3b3"/><rect x="30" y="48" width="16" height="6" rx="3" fill="#222" transform="rotate(-10 38 51)"/><rect x="54" y="48" width="16" height="6" rx="3" fill="#222" transform="rotate(10 62 51)"/><ellipse cx="50" cy="62" rx="5" ry="3" fill="#ff4757"/><path d="M45,66 Q50,72 55,66" stroke="#222" stroke-width="2" fill="none"/><line x1="15" y1="55" x2="32" y2="52" stroke="#222" stroke-width="1.5"/><line x1="15" y1="60" x2="32" y2="58" stroke="#222" stroke-width="1.5"/><line x1="85" y1="55" x2="68" y2="52" stroke="#222" stroke-width="1.5"/><line x1="85" y1="60" x2="68" y2="58" stroke="#222" stroke-width="1.5"/></svg>'},
+  {id:"crazy_dog",name:"Cachorro Doido",bg:"#ffd93d",svg:'<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="32" fill="#ffd93d"/><ellipse cx="30" cy="30" rx="12" ry="18" fill="#e8b800" transform="rotate(-15 30 30)"/><ellipse cx="70" cy="30" rx="12" ry="18" fill="#e8b800" transform="rotate(15 70 30)"/><circle cx="50" cy="55" r="28" fill="#ffe680"/><circle cx="38" cy="48" r="8" fill="#fff"/><circle cx="62" cy="48" r="8" fill="#fff"/><circle cx="40" cy="47" r="4" fill="#222"/><circle cx="64" cy="47" r="4" fill="#222"/><ellipse cx="50" cy="60" rx="8" ry="6" fill="#222"/><ellipse cx="50" cy="58" rx="5" ry="3" fill="#555"/><path d="M42,68 Q50,78 58,68" fill="#ff6b6b"/><ellipse cx="50" cy="74" rx="6" ry="4" fill="#ff4757"/></svg>'},
+  {id:"nerd_owl",name:"Coruja Nerd",bg:"#4d96ff",svg:'<svg viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="30" ry="32" fill="#4d96ff"/><polygon points="25,35 20,20 35,40" fill="#4d96ff"/><polygon points="75,35 80,20 65,40" fill="#4d96ff"/><ellipse cx="50" cy="55" rx="26" ry="28" fill="#80b8ff"/><circle cx="38" cy="48" r="12" fill="#fff" stroke="#333" stroke-width="2"/><circle cx="62" cy="48" r="12" fill="#fff" stroke="#333" stroke-width="2"/><circle cx="38" cy="48" r="5" fill="#222"/><circle cx="62" cy="48" r="5" fill="#222"/><rect x="26" y="42" width="48" height="4" rx="2" fill="#ffd93d" opacity="0.9"/><rect x="48" y="42" width="4" height="12" rx="2" fill="#ffd93d" opacity="0.9"/><polygon points="47,62 53,62 50,68" fill="#f39c12"/></svg>'},
+  {id:"silly_monkey",name:"Macaco Sapeca",bg:"#e17055",svg:'<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="30" fill="#e17055"/><circle cx="22" cy="52" r="12" fill="#e17055"/><circle cx="22" cy="52" r="8" fill="#ffb3a0"/><circle cx="78" cy="52" r="12" fill="#e17055"/><circle cx="78" cy="52" r="8" fill="#ffb3a0"/><circle cx="50" cy="55" r="26" fill="#ffb3a0"/><circle cx="38" cy="48" r="5" fill="#222"/><circle cx="62" cy="48" r="5" fill="#222"/><ellipse cx="50" cy="62" rx="14" ry="10" fill="#e8a090"/><ellipse cx="50" cy="60" rx="5" ry="3" fill="#c0392b"/><path d="M43,66 Q50,74 57,66" fill="#c0392b"/></svg>'},
+  {id:"punk_chick",name:"Pintinho Punk",bg:"#fdcb6e",svg:'<svg viewBox="0 0 100 100"><ellipse cx="50" cy="60" rx="28" ry="30" fill="#fdcb6e"/><polygon points="42,18 50,5 48,25" fill="#ff6b6b"/><polygon points="48,15 56,2 53,22" fill="#ff6bff"/><polygon points="54,18 62,8 57,26" fill="#4d96ff"/><ellipse cx="50" cy="58" rx="24" ry="26" fill="#ffeaa7"/><circle cx="40" cy="50" r="5" fill="#fff"/><circle cx="60" cy="50" r="5" fill="#fff"/><circle cx="41" cy="49" r="3" fill="#222"/><circle cx="61" cy="49" r="3" fill="#222"/><polygon points="47,58 53,58 50,65" fill="#f39c12"/></svg>'},
+  {id:"dizzy_alien",name:"ET Tontão",bg:"#6bcb77",svg:'<svg viewBox="0 0 100 100"><ellipse cx="50" cy="55" rx="25" ry="32" fill="#6bcb77"/><ellipse cx="50" cy="52" rx="22" ry="28" fill="#a8f0b0"/><ellipse cx="36" cy="46" rx="12" ry="8" fill="#222" transform="rotate(-10 36 46)"/><ellipse cx="64" cy="46" rx="12" ry="8" fill="#222" transform="rotate(10 64 46)"/><ellipse cx="36" cy="46" rx="10" ry="6" fill="#6bcb77" transform="rotate(-10 36 46)"/><ellipse cx="64" cy="46" rx="10" ry="6" fill="#6bcb77" transform="rotate(10 64 46)"/><circle cx="38" cy="45" r="3" fill="#fff"/><circle cx="66" cy="45" r="3" fill="#fff"/><ellipse cx="50" cy="64" rx="4" ry="5" fill="#333"/><line x1="28" y1="28" x2="32" y2="36" stroke="#6bcb77" stroke-width="3" stroke-linecap="round"/><circle cx="27" cy="25" r="4" fill="#6bcb77"/><line x1="72" y1="28" x2="68" y2="36" stroke="#6bcb77" stroke-width="3" stroke-linecap="round"/><circle cx="73" cy="25" r="4" fill="#6bcb77"/></svg>'},
+  {id:"grumpy_bear",name:"Urso Ranzinza",bg:"#a0522d",svg:'<svg viewBox="0 0 100 100"><circle cx="30" cy="28" r="12" fill="#a0522d"/><circle cx="30" cy="28" r="7" fill="#c0784a"/><circle cx="70" cy="28" r="12" fill="#a0522d"/><circle cx="70" cy="28" r="7" fill="#c0784a"/><circle cx="50" cy="55" r="32" fill="#a0522d"/><circle cx="50" cy="55" r="27" fill="#c0784a"/><path d="M34,48 L42,52" stroke="#222" stroke-width="3" stroke-linecap="round"/><path d="M66,48 L58,52" stroke="#222" stroke-width="3" stroke-linecap="round"/><circle cx="38" cy="54" r="4" fill="#222"/><circle cx="62" cy="54" r="4" fill="#222"/><ellipse cx="50" cy="64" rx="6" ry="4" fill="#222"/><path d="M40,70 Q50,66 60,70" stroke="#222" stroke-width="2.5" fill="none"/></svg>'},
+  {id:"happy_panda",name:"Panda Feliz",bg:"#2d3436",svg:'<svg viewBox="0 0 100 100"><circle cx="28" cy="30" r="14" fill="#222"/><circle cx="72" cy="30" r="14" fill="#222"/><circle cx="50" cy="55" r="32" fill="#f5f5f5"/><ellipse cx="36" cy="48" rx="11" ry="10" fill="#222"/><ellipse cx="64" cy="48" rx="11" ry="10" fill="#222"/><circle cx="36" cy="47" r="5" fill="#fff"/><circle cx="64" cy="47" r="5" fill="#fff"/><circle cx="37" cy="46" r="3" fill="#222"/><circle cx="65" cy="46" r="3" fill="#222"/><ellipse cx="50" cy="60" rx="5" ry="3.5" fill="#222"/><path d="M42,66 Q50,74 58,66" fill="#ff6b6b"/></svg>'},
+  {id:"crazy_unicorn",name:"Unicórnio Louco",bg:"#ff6bff",svg:'<svg viewBox="0 0 100 100"><circle cx="50" cy="58" r="30" fill="#ffb3ff"/><polygon points="50,5 45,35 55,35" fill="#ffd93d"/><ellipse cx="50" cy="56" rx="26" ry="27" fill="#ffd6ff"/><circle cx="38" cy="50" r="6" fill="#fff"/><circle cx="62" cy="50" r="6" fill="#fff"/><circle cx="39" cy="49" r="3.5" fill="#9b59b6"/><circle cx="63" cy="49" r="3.5" fill="#9b59b6"/><path d="M44,64 Q50,70 56,64" fill="#ff6b6b"/><circle cx="30" cy="62" r="5" fill="#ffb3b3" opacity="0.5"/><circle cx="70" cy="62" r="5" fill="#b3d4ff" opacity="0.5"/></svg>'},
+  {id:"robot_nerd",name:"Robô Zueiro",bg:"#636e72",svg:'<svg viewBox="0 0 100 100"><line x1="50" y1="8" x2="50" y2="22" stroke="#aaa" stroke-width="3"/><circle cx="50" cy="6" r="4" fill="#ff6b6b"/><rect x="24" y="25" width="52" height="42" rx="8" fill="#636e72"/><rect x="28" y="29" width="44" height="34" rx="5" fill="#b2bec3"/><rect x="33" y="36" width="14" height="10" rx="2" fill="#222"/><rect x="53" y="36" width="14" height="10" rx="2" fill="#222"/><circle cx="38" cy="40" r="3" fill="#4d96ff"/><circle cx="58" cy="40" r="3" fill="#ff6b6b"/><rect x="38" y="52" width="24" height="4" rx="2" fill="#222"/><rect x="38" y="52" width="4" height="4" rx="1" fill="#6bcb77"/><rect x="44" y="52" width="4" height="4" rx="1" fill="#ffd93d"/><rect x="50" y="52" width="4" height="4" rx="1" fill="#ff6b6b"/><rect x="56" y="52" width="4" height="4" rx="1" fill="#4d96ff"/><rect x="30" y="70" width="16" height="12" rx="3" fill="#636e72"/><rect x="54" y="70" width="16" height="12" rx="3" fill="#636e72"/></svg>'},
+  {id:"pirate_parrot",name:"Papagaio Pirata",bg:"#00b894",svg:'<svg viewBox="0 0 100 100"><ellipse cx="50" cy="58" rx="26" ry="30" fill="#00b894"/><ellipse cx="50" cy="56" rx="22" ry="26" fill="#55efc4"/><path d="M30,25 Q50,10 70,25 Q60,15 50,18 Q40,15 30,25" fill="#ff6b6b"/><circle cx="38" cy="48" r="7" fill="#fff"/><circle cx="62" cy="48" r="7" fill="#fff"/><circle cx="39" cy="47" r="4" fill="#222"/><circle cx="63" cy="47" r="4" fill="#222"/><path d="M44,58 L50,68 L56,58 Z" fill="#f39c12"/><rect x="32" y="44" width="7" height="2" rx="1" fill="#222" transform="rotate(10 35 45)"/><circle cx="24" cy="46" r="5" fill="#333"/><circle cx="24" cy="46" r="3" fill="#222"/></svg>'},
+  {id:"sleepy_sloth",name:"Preguiça Soneca",bg:"#b8a99a",svg:'<svg viewBox="0 0 100 100"><circle cx="50" cy="55" r="32" fill="#b8a99a"/><circle cx="50" cy="55" r="27" fill="#d4c5b5"/><ellipse cx="50" cy="52" rx="18" ry="12" fill="#e8ddd0"/><path d="M34,48 Q40,52 46,48" stroke="#222" stroke-width="2.5" fill="none"/><path d="M54,48 Q60,52 66,48" stroke="#222" stroke-width="2.5" fill="none"/><ellipse cx="50" cy="60" rx="5" ry="3" fill="#a0522d"/><text x="65" y="35" font-size="14" fill="#4d96ff" font-weight="bold">z</text><text x="72" y="28" font-size="10" fill="#4d96ff" font-weight="bold">z</text><text x="77" y="22" font-size="8" fill="#4d96ff" font-weight="bold">z</text></svg>'},
+];
+
+function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i=0;i<5;i++)r+=c[Math.floor(Math.random()*c.length)];return r;}
+
+/* ─── UI COMPONENTS ────────────────────── */
+function Av({id,size=60,style={}}){const a=AVS.find(x=>x.id===id)||AVS[0];return <div style={{width:size,height:size,borderRadius:"50%",overflow:"hidden",background:a.bg+"33",border:"3px solid "+a.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,...style}} dangerouslySetInnerHTML={{__html:a.svg}}/>;}
+
+function AvPicker({selected,onSelect,used=[]}){
+  return <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,maxHeight:260,overflowY:"auto",padding:4}}>
+    {AVS.map(a=>{const u=used.includes(a.id)&&a.id!==selected;const s=selected===a.id;
+      return <button key={a.id} onClick={()=>!u&&onSelect(a.id)} style={{background:s?a.bg+"33":"rgba(255,255,255,0.04)",border:s?"3px solid "+a.bg:"3px solid transparent",borderRadius:16,padding:"10px 4px 6px",cursor:u?"not-allowed":"pointer",transition:"all 0.25s",opacity:u?0.3:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,transform:s?"scale(1.05)":"scale(1)",boxShadow:s?"0 4px 20px "+a.bg+"44":"none"}}>
+        <div style={{width:48,height:48,borderRadius:"50%",overflow:"hidden",animation:s?"wiggle 0.5s":"none"}} dangerouslySetInnerHTML={{__html:a.svg}}/>
+        <span style={{fontSize:"0.6rem",color:s?a.bg:C.tm,fontWeight:700,textAlign:"center",lineHeight:1.1}}>{a.name}</span>
+      </button>;
+    })}
+  </div>;
+}
+
+function Confetti({active}){if(!active)return null;const ps=Array.from({length:60},(_,i)=>({i,l:Math.random()*100,d:Math.random()*2,du:2+Math.random()*2,c:["#ff6b6b","#ffd93d","#6bcb77","#4d96ff","#ff6bff","#6bfff2"][i%6],s:6+Math.random()*10,r:Math.random()*360}));return <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:9999}}>{ps.map(p=><div key={p.i} style={{position:"absolute",left:p.l+"%",top:"-20px",width:p.s,height:p.s*0.6,background:p.c,borderRadius:"2px",transform:"rotate("+p.r+"deg)",animation:"confFall "+p.du+"s "+p.d+"s ease-in forwards"}}/>)}</div>;}
+
+function Orbs(){return <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}>{[{s:300,x:"10%",y:"20%",c:"rgba(255,107,107,0.08)",d:"20s",a:"orbF0"},{s:400,x:"70%",y:"60%",c:"rgba(77,150,255,0.08)",d:"25s",a:"orbF1"},{s:250,x:"50%",y:"10%",c:"rgba(255,107,255,0.06)",d:"18s",a:"orbF2"},{s:350,x:"80%",y:"80%",c:"rgba(107,203,119,0.06)",d:"22s",a:"orbF3"}].map((o,i)=><div key={i} style={{position:"absolute",left:o.x,top:o.y,width:o.s,height:o.s,borderRadius:"50%",background:o.c,filter:"blur(60px)",animation:o.a+" "+o.d+" ease-in-out infinite alternate"}}/>)}</div>;}
+
+function Btn({children,onClick,color=C.a2,style={},disabled=false}){const dk=color===C.a2||color===C.a6||color===C.a3;return <button disabled={disabled} onClick={onClick} style={{padding:"14px 32px",border:"none",borderRadius:14,cursor:disabled?"not-allowed":"pointer",background:disabled?"#444":color,color:disabled?"#888":dk?"#111":"#fff",fontFamily:"'Lilita One',cursive",fontSize:"1.05rem",boxShadow:disabled?"none":"0 4px 25px "+color+"66",transition:"all 0.3s",opacity:disabled?0.5:1,...style}} onMouseEnter={e=>{if(!disabled)e.target.style.transform="scale(1.05)"}} onMouseLeave={e=>{e.target.style.transform="scale(1)"}}>{children}</button>;}
+
+function Inp({value,onChange,placeholder,type="text",style={},onKeyDown}){return <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} onKeyDown={onKeyDown} style={{padding:"14px 18px",borderRadius:12,border:"2px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)",color:"#fff",fontSize:"1rem",fontFamily:"'Nunito',sans-serif",outline:"none",width:"100%",boxSizing:"border-box",transition:"border-color 0.3s",...style}} onFocus={e=>e.target.style.borderColor=C.a2} onBlur={e=>e.target.style.borderColor="rgba(255,255,255,0.1)"}/>;}
+
+function Badge({children,color}){return <span style={{display:"inline-block",padding:"4px 12px",borderRadius:20,background:color+"22",color,fontSize:"0.8rem",fontWeight:700,fontFamily:"'Nunito',sans-serif",border:"1px solid "+color+"44"}}>{children}</span>;}
+
+function Spinner(){return <div style={{display:"inline-block",width:20,height:20,border:"3px solid rgba(255,255,255,0.2)",borderTop:"3px solid #fff",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>;}
+
+/* ─── WELCOME SCREEN ───────────────────── */
+function WelcomeScreen({onCreateRoom,onJoinRoom}){
+  return <div style={{textAlign:"center",padding:"40px 20px",maxWidth:600,margin:"0 auto"}}>
+    <div style={{fontSize:"5rem",marginBottom:10,animation:"titleBounce 2s ease-in-out infinite"}}>🎯</div>
+    <h1 style={{fontFamily:"'Lilita One',cursive",fontSize:"clamp(2rem,6vw,3.2rem)",background:"linear-gradient(135deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#ff6bff)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:8,lineHeight:1.2}}>ADIVINHA MEU NÚMERO!</h1>
+    <p style={{color:C.tm,fontSize:"1.05rem",marginBottom:10,lineHeight:1.5}}>Cada jogador no seu celular, em tempo real!</p>
+    <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:28,flexWrap:"wrap"}}>
+      {AVS.slice(0,6).map((a,i)=><div key={a.id} style={{width:46,height:46,borderRadius:"50%",overflow:"hidden",border:"3px solid "+a.bg,animation:"float "+(2+i*0.3)+"s ease-in-out infinite",animationDelay:(i*0.15)+"s"}} dangerouslySetInnerHTML={{__html:a.svg}}/>)}
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:14,maxWidth:340,margin:"0 auto"}}>
+      <Btn onClick={onCreateRoom} color={C.a2} style={{width:"100%",fontSize:"1.2rem",padding:"18px"}}>🏠 CRIAR SALA</Btn>
+      <Btn onClick={onJoinRoom} color={C.a4} style={{width:"100%",fontSize:"1.2rem",padding:"18px"}}>🚪 ENTRAR NA SALA</Btn>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginTop:30}}>
+      {[{i:"📱",t:"Cada um no seu celular"},{i:"🔄",t:"Sincronizado em tempo real"},{i:"📝",t:"Anote seus palpites"},{i:"🏆",t:"Acerte primeiro!"}].map((x,j)=>
+        <div key={j} style={{background:C.sf,borderRadius:14,padding:"16px 10px",border:"1px solid rgba(255,255,255,0.06)",animation:"fadeUp 0.5s "+(j*0.1)+"s both"}}>
+          <div style={{fontSize:"1.5rem",marginBottom:4}}>{x.i}</div>
+          <div style={{color:C.tm,fontSize:"0.75rem"}}>{x.t}</div>
+        </div>
+      )}
+    </div>
+  </div>;
+}
+
+/* ─── CREATE/JOIN ROOM ─────────────────── */
+function SetupScreen({mode,uid,onReady,onBack}){
+  const [name,setName]=useState("");
+  const [avatar,setAvatar]=useState(AVS[0].id);
+  const [showAv,setShowAv]=useState(false);
+  const [roomCode,setRoomCode]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+
+  const handleGo=async()=>{
+    if(!name.trim()){setError("Digite seu nome!");return;}
+    setLoading(true);setError("");
+    try{
+      if(mode==="create"){
+        let code=genCode();
+        let tries=0;
+        while(tries<10){
+          const snap=await db.ref("rooms/"+code).once("value");
+          if(!snap.exists())break;
+          code=genCode();tries++;
+        }
+        await db.ref("rooms/"+code).set({
+          config:{status:"lobby",hostId:uid,createdAt:Date.now()},
+          players:{[uid]:{name:name.trim(),avatar,colorIdx:0,ready:false}}
+        });
+        onReady(code);
+      } else {
+        const c=roomCode.trim().toUpperCase();
+        if(c.length!==5){setError("Código deve ter 5 caracteres!");setLoading(false);return;}
+        const snap=await db.ref("rooms/"+c+"/config").once("value");
+        if(!snap.exists()){setError("Sala não encontrada!");setLoading(false);return;}
+        if(snap.val().status!=="lobby"){setError("Jogo já começou!");setLoading(false);return;}
+        const plSnap=await db.ref("rooms/"+c+"/players").once("value");
+        const pls=plSnap.val()||{};
+        const idx=Object.keys(pls).length;
+        await db.ref("rooms/"+c+"/players/"+uid).set({name:name.trim(),avatar,colorIdx:idx%TC.length,ready:false});
+        onReady(c);
+      }
+    }catch(e){setError("Erro: "+e.message);}
+    setLoading(false);
+  };
+
+  return <div style={{maxWidth:500,margin:"0 auto",padding:"30px 20px"}}>
+    <button onClick={onBack} style={{background:"none",border:"none",color:C.tm,cursor:"pointer",fontSize:"1rem",marginBottom:16,fontFamily:"'Nunito',sans-serif"}}>← Voltar</button>
+    <h2 style={{fontFamily:"'Lilita One',cursive",color:C.text,fontSize:"1.6rem",textAlign:"center",marginBottom:8}}>
+      {mode==="create"?"🏠 Criar Sala":"🚪 Entrar na Sala"}
+    </h2>
+    <div style={{background:C.sf,borderRadius:18,padding:24,border:"1px solid rgba(255,255,255,0.06)",animation:"scaleIn 0.3s ease"}}>
+      {mode==="join"&&<div style={{marginBottom:16}}>
+        <label style={{color:C.a2,fontFamily:"'Lilita One',cursive",fontSize:"0.9rem",display:"block",marginBottom:6}}>Código da Sala:</label>
+        <Inp value={roomCode} onChange={v=>setRoomCode(v.toUpperCase())} placeholder="EX: ABC12" style={{textAlign:"center",fontSize:"1.5rem",fontFamily:"'Lilita One',cursive",letterSpacing:6}}/>
+      </div>}
+      <div style={{display:"flex",gap:14,alignItems:"center",marginBottom:14}}>
+        <button onClick={()=>setShowAv(!showAv)} style={{background:"none",border:"none",cursor:"pointer",position:"relative"}}>
+          <Av id={avatar} size={70} style={{boxShadow:"0 0 0 3px "+C.a2}}/>
+          <div style={{position:"absolute",bottom:-2,right:-2,width:22,height:22,borderRadius:"50%",background:C.a2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",color:"#111"}}>✏️</div>
+        </button>
+        <div style={{flex:1}}><Inp value={name} onChange={setName} placeholder="Seu nome" onKeyDown={e=>e.key==="Enter"&&handleGo()}/></div>
+      </div>
+      {showAv&&<div style={{animation:"scaleIn 0.2s ease",marginBottom:14}}>
+        <AvPicker selected={avatar} onSelect={a=>{setAvatar(a);setShowAv(false);}} used={[]}/>
+      </div>}
+      {error&&<p style={{color:C.a1,fontSize:"0.9rem",marginBottom:10,textAlign:"center"}}>{error}</p>}
+      <Btn onClick={handleGo} disabled={loading} color={mode==="create"?C.a2:C.a4} style={{width:"100%",fontSize:"1.15rem"}}>
+        {loading?<Spinner/>:mode==="create"?"🎮 CRIAR SALA":"🚀 ENTRAR"}
+      </Btn>
+    </div>
+  </div>;
+}
+
+/* ─── LOBBY ────────────────────────────── */
+function LobbyScreen({roomCode,roomData,uid}){
+  if(!roomData)return <div style={{textAlign:"center",padding:60}}><Spinner/></div>;
+  const cfg=roomData.config||{};
+  const pls=roomData.players||{};
+  const plList=Object.entries(pls);
+  const isHost=cfg.hostId===uid;
+
+  const startGame=async()=>{
+    if(plList.length<2)return;
+    await db.ref("rooms/"+roomCode+"/config/status").set("secrets");
+  };
+
+  const kickPlayer=async(pid)=>{
+    await db.ref("rooms/"+roomCode+"/players/"+pid).remove();
+  };
+
+  return <div style={{maxWidth:500,margin:"0 auto",padding:"30px 20px",textAlign:"center"}}>
+    <div style={{background:"linear-gradient(135deg,"+C.a2+"22,"+C.a4+"22)",borderRadius:18,padding:"16px 20px",marginBottom:24,border:"1px solid "+C.a2+"33"}}>
+      <p style={{color:C.tm,fontSize:"0.85rem",marginBottom:4}}>Código da Sala:</p>
+      <div style={{fontFamily:"'Lilita One',cursive",fontSize:"2.4rem",color:C.a2,letterSpacing:8}}>{roomCode}</div>
+      <p style={{color:C.tm,fontSize:"0.8rem",marginTop:4}}>Compartilhe este código com os jogadores!</p>
+    </div>
+
+    <h3 style={{fontFamily:"'Lilita One',cursive",color:C.text,fontSize:"1.2rem",marginBottom:16}}>
+      👥 Jogadores ({plList.length})
+    </h3>
+
+    <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>
+      {plList.map(([pid,p],i)=>{
+        const tc=TC[p.colorIdx||0];
+        return <div key={pid} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:14,background:tc.bg,boxShadow:"0 4px 15px "+tc.glow,animation:"fadeUp 0.3s "+(i*0.08)+"s both"}}>
+          <Av id={p.avatar} size={44} style={{border:"2px solid rgba(255,255,255,0.3)"}}/>
+          <span style={{flex:1,fontFamily:"'Lilita One',cursive",color:"#fff",fontSize:"1.05rem",textAlign:"left"}}>{p.name}</span>
+          {pid===cfg.hostId&&<Badge color={C.a2}>HOST</Badge>}
+          {pid===uid&&pid!==cfg.hostId&&<Badge color={C.a3}>VOCÊ</Badge>}
+          {isHost&&pid!==uid&&<button onClick={()=>kickPlayer(pid)} style={{background:"rgba(0,0,0,0.3)",border:"none",color:"#fff",borderRadius:"50%",width:26,height:26,cursor:"pointer",fontSize:"0.8rem"}}>✕</button>}
+        </div>;
+      })}
+    </div>
+
+    {plList.length<2&&<div style={{background:C.sf,borderRadius:12,padding:"14px 16px",marginBottom:20,border:"1px solid rgba(255,255,255,0.06)"}}>
+      <p style={{color:C.tm,fontSize:"0.9rem",animation:"pulse 2s infinite"}}>⏳ Aguardando mais jogadores...</p>
+    </div>}
+
+    {isHost?
+      <Btn onClick={startGame} disabled={plList.length<2} color={C.a2} style={{width:"100%",fontSize:"1.2rem",padding:"16px"}}>
+        {plList.length>=2?"🚀 INICIAR JOGO":"Mínimo 2 jogadores"}
+      </Btn>
+    :
+      <div style={{background:C.sf,borderRadius:14,padding:"18px",border:"1px solid rgba(255,255,255,0.06)"}}>
+        <p style={{color:C.a2,fontFamily:"'Lilita One',cursive",animation:"pulse 2s infinite"}}>⏳ Aguardando o host iniciar o jogo...</p>
+      </div>
+    }
+  </div>;
+}
+
+/* ─── SECRET PHASE ─────────────────────── */
+function SecretScreen({roomCode,roomData,uid}){
+  const [secretInput,setSecretInput]=useState("");
+  const [revealed,setRevealed]=useState(false);
+  const [error,setError]=useState("");
+  const [submitted,setSubmitted]=useState(false);
+
+  const pls=roomData?.players||{};
+  const me=pls[uid];
+  const plList=Object.entries(pls);
+  const allReady=plList.every(([_,p])=>p.ready);
+  const isHost=roomData?.config?.hostId===uid;
+
+  useEffect(()=>{
+    if(me?.ready)setSubmitted(true);
+  },[me?.ready]);
+
+  // Host: when all ready, generate matchups and start
+  useEffect(()=>{
+    if(!allReady||!isHost||plList.length<2)return;
+    const uids=plList.map(([id])=>id);
+    const matchups=[];
+    for(let i=0;i<uids.length;i++)for(let j=i+1;j<uids.length;j++)matchups.push([uids[i],uids[j]]);
+    db.ref("rooms/"+roomCode+"/game").set({matchups,currentMatch:0,turn:0,round:1});
+    db.ref("rooms/"+roomCode+"/config/status").set("playing");
+  },[allReady,isHost]);
+
+  const confirm=async()=>{
+    const n=parseInt(secretInput);
+    if(isNaN(n)||n<0||n>100){setError("Número de 0 a 100!");return;}
+    await db.ref("rooms/"+roomCode+"/players/"+uid+"/secret").set(n);
+    await db.ref("rooms/"+roomCode+"/players/"+uid+"/ready").set(true);
+    setSubmitted(true);
+  };
+
+  const tc=TC[me?.colorIdx||0];
+  const readyCount=plList.filter(([_,p])=>p.ready).length;
+
+  if(submitted){
+    return <div style={{maxWidth:500,margin:"0 auto",padding:"30px 20px",textAlign:"center"}}>
+      <div style={{background:C.card,borderRadius:24,padding:"50px 30px",border:"2px solid "+C.a3+"44",boxShadow:"0 8px 40px rgba(107,203,119,0.3)"}}>
+        <div style={{fontSize:"4rem",marginBottom:16}}>✅</div>
+        <h3 style={{fontFamily:"'Lilita One',cursive",color:C.a3,fontSize:"1.4rem",marginBottom:12}}>Número Registrado!</h3>
+        <p style={{color:C.tm,marginBottom:20}}>Aguardando outros jogadores...</p>
+        <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+          {plList.map(([pid,p])=><div key={pid} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:10,background:p.ready?C.a3+"22":"rgba(255,255,255,0.05)",border:"1px solid "+(p.ready?C.a3:C.tm)+"33"}}>
+            <Av id={p.avatar} size={28}/>
+            <span style={{fontSize:"0.85rem",color:p.ready?C.a3:C.tm}}>{p.name}</span>
+            <span>{p.ready?"✅":"⏳"}</span>
+          </div>)}
+        </div>
+        <p style={{color:C.tm,fontSize:"0.85rem",marginTop:16}}>{readyCount}/{plList.length} prontos</p>
+      </div>
+    </div>;
+  }
+
+  return <div style={{maxWidth:500,margin:"0 auto",padding:"30px 20px",textAlign:"center"}}>
+    <h2 style={{fontFamily:"'Lilita One',cursive",color:C.text,fontSize:"1.5rem",marginBottom:20}}>🤫 Escolha o Número Secreto</h2>
+    <div style={{background:C.card,borderRadius:24,padding:"40px 30px",border:"2px solid "+tc.s+"44",boxShadow:"0 8px 40px "+tc.glow,animation:"scaleIn 0.4s ease"}}>
+      <div style={{animation:"float 3s ease-in-out infinite",display:"inline-block",marginBottom:16}}>
+        <Av id={me?.avatar||AVS[0].id} size={90} style={{boxShadow:"0 6px 30px "+tc.glow,border:"4px solid "+tc.s}}/>
+      </div>
+      <h3 style={{fontFamily:"'Lilita One',cursive",color:tc.s,fontSize:"1.5rem",marginBottom:8}}>{me?.name}</h3>
+      <p style={{color:"#fff",marginBottom:20}}>Escolha um número de <strong style={{color:C.a2}}>0</strong> a <strong style={{color:C.a2}}>100</strong></p>
+      <div style={{position:"relative",marginBottom:16}}>
+        <input type={revealed?"number":"password"} value={secretInput} onChange={e=>{setSecretInput(e.target.value);setError("");}} onKeyDown={e=>e.key==="Enter"&&confirm()} placeholder="Seu número secreto" style={{padding:"18px 60px 18px 22px",borderRadius:16,border:"2px solid "+tc.s+"44",background:"rgba(0,0,0,0.3)",color:"#fff",fontSize:"1.5rem",fontFamily:"'Lilita One',cursive",width:"100%",boxSizing:"border-box",textAlign:"center",outline:"none"}}/>
+        <button onClick={()=>setRevealed(!revealed)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",fontSize:"1.3rem",cursor:"pointer"}}>{revealed?"🙈":"👁️"}</button>
+      </div>
+      {error&&<p style={{color:C.a1,fontSize:"0.9rem",marginBottom:10}}>{error}</p>}
+      <Btn onClick={confirm} color={tc.s} style={{width:"100%",fontSize:"1.1rem"}}>✅ Confirmar</Btn>
+    </div>
+  </div>;
+}
+
+/* ─── MATCH PHASE ──────────────────────── */
+function MatchScreen({roomCode,roomData,uid}){
+  const [guessInput,setGuessInput]=useState("");
+  const [notes,setNotes]=useState([]);
+  const [newNote,setNewNote]=useState("");
+  const [showNotes,setShowNotes]=useState(false);
+  const [showConf,setShowConf]=useState(false);
+  const [hint,setHint]=useState("");
+  const prevMatchRef=useRef(null);
+
+  const pls=roomData?.players||{};
+  const game=roomData?.game||{};
+  const history=roomData?.history||{};
+  const winners=roomData?.winners||{};
+  const matchups=game.matchups||[];
+  const mi=game.currentMatch||0;
+  const match=matchups[mi];
+  const isHost=roomData?.config?.hostId===uid;
+
+  // Reset hint on match/turn change
+  useEffect(()=>{
+    const key=mi+"-"+game.turn+"-"+game.round;
+    if(prevMatchRef.current!==key){setHint("");setGuessInput("");prevMatchRef.current=key;}
+  },[mi,game.turn,game.round]);
+
+  // Show confetti on new winner
+  useEffect(()=>{
+    if(winners[mi]){setShowConf(true);setTimeout(()=>setShowConf(false),5000);}
+  },[winners[mi]]);
+
+  if(!match){
+    return <ResultsScreen roomCode={roomCode} roomData={roomData} uid={uid}/>;
+  }
+
+  const guesserUid=match[game.turn||0];
+  const defenderUid=match[1-(game.turn||0)];
+  const guesser=pls[guesserUid]||{};
+  const defender=pls[defenderUid]||{};
+  const isMyTurn=guesserUid===uid;
+  const amInMatch=match.includes(uid);
+  const tg=TC[guesser.colorIdx||0];
+  const td=TC[defender.colorIdx||0];
+
+  const mHistory=(history[mi]||[]);
+  const myHistory=mHistory.filter(h=>h.uid===uid);
+  const currentWinner=winners[mi];
+
+  const submitGuess=async()=>{
+    const n=parseInt(guessInput);
+    if(isNaN(n)||n<0||n>100)return;
+    const secret=pls[defenderUid]?.secret;
+    let result;
+    if(n===secret)result="acertou";
+    else if(n>secret){result="menos";setHint("O número é menor que "+n);}
+    else{result="mais";setHint("O número é maior que "+n);}
+
+    const entry={uid:guesserUid,guess:n,result,round:game.round||1};
+    const newHist=[...mHistory,entry];
+    await db.ref("rooms/"+roomCode+"/history/"+mi).set(newHist);
+    setGuessInput("");
+
+    if(result==="acertou"){
+      await db.ref("rooms/"+roomCode+"/winners/"+mi).set(guesserUid);
+    } else {
+      const newTurn=1-(game.turn||0);
+      const updates={turn:newTurn};
+      if(newTurn===0)updates.round=(game.round||1)+1;
+      await db.ref("rooms/"+roomCode+"/game").update(updates);
+    }
+  };
+
+  const nextMatch=async()=>{
+    const nextMi=mi+1;
+    if(nextMi>=matchups.length){
+      await db.ref("rooms/"+roomCode+"/config/status").set("results");
+    } else {
+      await db.ref("rooms/"+roomCode+"/game").update({currentMatch:nextMi,turn:0,round:1});
+    }
+  };
+
+  const addNote=()=>{if(!newNote.trim())return;setNotes([...notes,{text:newNote.trim(),round:game.round||1}]);setNewNote("");};
+
+  // ─── WINNER VIEW ───
+  if(currentWinner){
+    const w=pls[currentWinner]||{};
+    const tw=TC[w.colorIdx||0];
+    const secret=pls[defenderUid]?.secret;
+    return <div style={{maxWidth:500,margin:"0 auto",padding:"30px 20px",textAlign:"center"}}>
+      <Confetti active={showConf}/>
+      <div style={{animation:"titleBounce 1s ease infinite",display:"inline-block",marginBottom:16}}>
+        <Av id={w.avatar} size={100} style={{boxShadow:"0 0 50px "+tw.glow,border:"5px solid "+C.a2}}/>
+      </div>
+      <h2 style={{fontFamily:"'Lilita One',cursive",color:tw.s,fontSize:"2rem",marginBottom:8}}>{w.name} VENCEU! 🏆</h2>
+      <p style={{color:C.tm,marginBottom:6}}>O número secreto era:</p>
+      <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:80,height:80,borderRadius:"50%",background:tw.bg,fontSize:"2rem",fontFamily:"'Lilita One',cursive",color:"#fff",boxShadow:"0 0 40px "+tw.glow,marginBottom:20}}>{secret}</div>
+      <div style={{background:C.sf,borderRadius:16,padding:16,marginBottom:20,border:"1px solid rgba(255,255,255,0.06)",textAlign:"left"}}>
+        <h4 style={{fontFamily:"'Lilita One',cursive",color:C.a2,marginBottom:10,fontSize:"0.9rem"}}>📊 Histórico</h4>
+        {match.map(pid=>{const p=pls[pid]||{};const h=mHistory.filter(x=>x.uid===pid);if(!h.length)return null;
+          return <div key={pid} style={{marginBottom:10,display:"flex",alignItems:"flex-start",gap:8}}>
+            <Av id={p.avatar} size={28}/>
+            <div><Badge color={TC[p.colorIdx||0].s}>{p.name}</Badge>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>
+                {h.map((x,i)=><span key={i} style={{padding:"3px 8px",borderRadius:6,background:x.result==="acertou"?C.a3+"22":x.result==="menos"?C.a1+"22":C.a4+"22",color:x.result==="acertou"?C.a3:x.result==="menos"?C.a1:C.a4,fontSize:"0.8rem",fontWeight:700}}>{x.guess}{x.result==="acertou"?"🎯":x.result==="menos"?"↓":"↑"}</span>)}
+              </div>
+            </div>
+          </div>;
+        })}
+      </div>
+      {isHost?<Btn onClick={nextMatch} color={C.a2} style={{width:"100%",fontSize:"1.1rem"}}>
+        {mi+1<matchups.length?"➡️ PRÓXIMA PARTIDA":"🏆 VER RESULTADOS"}
+      </Btn>:<p style={{color:C.tm,fontSize:"0.9rem",animation:"pulse 2s infinite"}}>⏳ Aguardando host avançar...</p>}
+    </div>;
+  }
+
+  // ─── SPECTATOR VIEW ───
+  if(!amInMatch){
+    return <div style={{maxWidth:500,margin:"0 auto",padding:"30px 20px",textAlign:"center"}}>
+      <h3 style={{fontFamily:"'Lilita One',cursive",color:C.tm,fontSize:"1.2rem",marginBottom:20}}>👀 Assistindo</h3>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:20}}>
+        <div style={{textAlign:"center"}}><Av id={guesser.avatar} size={50} style={{border:"3px solid "+tg.s}}/><p style={{fontFamily:"'Lilita One',cursive",color:tg.s,fontSize:"0.85rem",marginTop:4}}>{guesser.name}</p></div>
+        <span style={{fontFamily:"'Lilita One',cursive",color:C.tm,fontSize:"1.2rem"}}>vs</span>
+        <div style={{textAlign:"center"}}><Av id={defender.avatar} size={50} style={{border:"3px solid "+td.s}}/><p style={{fontFamily:"'Lilita One',cursive",color:td.s,fontSize:"0.85rem",marginTop:4}}>{defender.name}</p></div>
+      </div>
+      <Badge color={C.a2}>Rodada {game.round||1}</Badge>
+      <p style={{color:C.tm,marginTop:12}}>Vez de <strong style={{color:tg.s}}>{guesser.name}</strong> adivinhar</p>
+      {mHistory.length>0&&<div style={{background:C.sf,borderRadius:14,padding:14,marginTop:16,textAlign:"left",border:"1px solid rgba(255,255,255,0.06)"}}>
+        {mHistory.map((h,i)=>{const p=pls[h.uid]||{};return <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+          <Av id={p.avatar} size={22}/><span style={{fontSize:"0.8rem",color:C.tm}}>{p.name}:</span>
+          <span style={{fontSize:"0.85rem",fontWeight:700,color:h.result==="menos"?C.a1:C.a4}}>{h.guess} {h.result==="menos"?"↓":"↑"}</span>
+        </div>;})}
+      </div>}
+    </div>;
+  }
+
+  // ─── MY TURN / WAITING ───
+  return <div style={{maxWidth:550,margin:"0 auto",padding:"20px"}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        <Av id={guesser.avatar} size={32} style={{border:"2px solid "+tg.s}}/>
+        <div style={{padding:"5px 10px",borderRadius:8,background:tg.bg,fontFamily:"'Lilita One',cursive",color:"#fff",fontSize:"0.85rem"}}>{guesser.name}</div>
+        <span style={{color:C.tm,fontSize:"0.9rem"}}>vs</span>
+        <Av id={defender.avatar} size={32} style={{border:"2px solid "+td.s}}/>
+        <div style={{padding:"5px 10px",borderRadius:8,background:td.bg,fontFamily:"'Lilita One',cursive",color:"#fff",fontSize:"0.85rem"}}>{defender.name}</div>
+      </div>
+      <Badge color={C.a2}>Rodada {game.round||1}</Badge>
+    </div>
+
+    {isMyTurn?
+      <div style={{background:C.card,borderRadius:20,padding:"28px 22px",border:"2px solid "+tg.s+"33",boxShadow:"0 6px 30px "+tg.glow,marginBottom:16}}>
+        <h3 style={{fontFamily:"'Lilita One',cursive",color:tg.s,fontSize:"1.15rem",marginBottom:4}}>🎯 Sua vez!</h3>
+        <p style={{color:C.tm,fontSize:"0.9rem",marginBottom:16}}>Adivinha o número de {defender.name} (0-100)</p>
+        <div style={{display:"flex",gap:10,marginBottom:hint?14:0}}>
+          <input type="number" value={guessInput} onChange={e=>setGuessInput(e.target.value)} placeholder="?" min={0} max={100} onKeyDown={e=>e.key==="Enter"&&submitGuess()} style={{flex:1,padding:16,borderRadius:14,border:"2px solid "+tg.s+"44",background:"rgba(0,0,0,0.3)",color:"#fff",fontSize:"1.8rem",fontFamily:"'Lilita One',cursive",textAlign:"center",outline:"none"}}/>
+          <Btn onClick={submitGuess} color={tg.s} style={{fontSize:"1.3rem",padding:"14px 24px"}}>✓</Btn>
+        </div>
+        {hint&&<div style={{padding:"12px 16px",borderRadius:10,background:hint.includes("menor")?C.a1+"15":C.a4+"15",border:"1px solid "+(hint.includes("menor")?C.a1:C.a4)+"33",color:hint.includes("menor")?C.a1:C.a4,fontWeight:700,fontSize:"0.95rem"}}>💡 {hint}</div>}
+      </div>
+    :
+      <div style={{background:C.card,borderRadius:20,padding:"36px 22px",border:"2px solid "+C.tm+"22",marginBottom:16,textAlign:"center"}}>
+        <div style={{fontSize:"2rem",marginBottom:8}}>⏳</div>
+        <h3 style={{fontFamily:"'Lilita One',cursive",color:C.tm,fontSize:"1.1rem",marginBottom:4}}>Vez de {guesser.name}</h3>
+        <p style={{color:C.tm,fontSize:"0.85rem",animation:"pulse 2s infinite"}}>Aguardando palpite...</p>
+      </div>
+    }
+
+    {/* History */}
+    {myHistory.length>0&&<div style={{background:C.sf,borderRadius:14,padding:"12px 16px",marginBottom:12,border:"1px solid rgba(255,255,255,0.06)"}}>
+      <h4 style={{fontFamily:"'Lilita One',cursive",color:C.a2,fontSize:"0.85rem",marginBottom:8}}>📊 Seus Palpites</h4>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+        {myHistory.map((g,i)=><span key={i} style={{padding:"5px 10px",borderRadius:8,background:g.result==="menos"?C.a1+"22":C.a4+"22",color:g.result==="menos"?C.a1:C.a4,fontSize:"0.85rem",fontWeight:700}}>{g.result==="menos"?"↓":"↑"}{g.guess}</span>)}
+      </div>
+    </div>}
+
+    {/* Notes */}
+    <div style={{background:C.sf,borderRadius:14,padding:"12px 16px",border:"1px solid rgba(255,255,255,0.06)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <h4 style={{fontFamily:"'Lilita One',cursive",color:C.a5,fontSize:"0.85rem",margin:0}}>📝 Anotações</h4>
+        {notes.length>0&&<button onClick={()=>setShowNotes(!showNotes)} style={{background:"none",border:"none",color:C.a5,cursor:"pointer",fontSize:"0.75rem"}}>{showNotes?"Esconder":"Mostrar ("+notes.length+")"}</button>}
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <Inp value={newNote} onChange={setNewNote} placeholder="Ex: +18, -70..." onKeyDown={e=>e.key==="Enter"&&addNote()} style={{flex:1,padding:"10px 12px",fontSize:"0.85rem"}}/>
+        <Btn onClick={addNote} color={C.a5} style={{padding:"10px 16px",fontSize:"0.85rem"}}>+</Btn>
+      </div>
+      {showNotes&&notes.map((n,i)=><div key={i} style={{padding:"6px 10px",borderRadius:6,background:"rgba(255,255,255,0.04)",marginTop:4,display:"flex",justifyContent:"space-between",fontSize:"0.8rem",color:C.tm}}><span>{n.text}</span><span style={{color:"rgba(255,255,255,0.2)"}}>R{n.round}</span></div>)}
+    </div>
+  </div>;
+}
+
+/* ─── RESULTS ──────────────────────────── */
+function ResultsScreen({roomCode,roomData,uid}){
+  const [cf,setCf]=useState(true);
+  useEffect(()=>{setTimeout(()=>setCf(false),5000);},[]);
+  const pls=roomData?.players||{};
+  const history=roomData?.history||{};
+  const winners=roomData?.winners||{};
+  const isHost=roomData?.config?.hostId===uid;
+
+  const stats=Object.entries(pls).map(([pid,p])=>{
+    let totalGuesses=0,wins=0;
+    Object.values(history).forEach(mh=>{
+      const mine=(mh||[]).filter(h=>h.uid===pid);
+      totalGuesses+=mine.length;
+    });
+    Object.values(winners).forEach(w=>{if(w===pid)wins++;});
+    return{pid,...p,wins,totalGuesses,avg:wins>0?(totalGuesses/wins).toFixed(1):"-"};
+  }).sort((a,b)=>b.wins-a.wins);
+
+  const playAgain=async()=>{
+    const pls2={};
+    Object.entries(pls).forEach(([pid,p])=>{pls2[pid]={name:p.name,avatar:p.avatar,colorIdx:p.colorIdx,ready:false};});
+    await db.ref("rooms/"+roomCode).update({config:{...roomData.config,status:"lobby"},players:pls2,game:null,history:null,winners:null});
+  };
+
+  return <div style={{maxWidth:550,margin:"0 auto",padding:"30px 20px"}}>
+    <Confetti active={cf}/>
+    <div style={{textAlign:"center",marginBottom:24}}>
+      <div style={{fontSize:"4rem",marginBottom:8}}>🏆</div>
+      <h2 style={{fontFamily:"'Lilita One',cursive",fontSize:"2rem",background:"linear-gradient(135deg,#ffd93d,#ff6b6b)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>RESULTADOS FINAIS</h2>
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:24}}>
+      {stats.map((p,i)=>{const tc=TC[p.colorIdx||0];return <div key={p.pid} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:16,background:i===0?tc.bg:C.sf,border:i===0?"none":"1px solid rgba(255,255,255,0.06)",boxShadow:i===0?"0 6px 30px "+tc.glow:"none",animation:"fadeUp 0.4s "+(i*0.1)+"s both"}}>
+        <div style={{position:"relative"}}>
+          <Av id={p.avatar} size={50} style={{border:i===0?"3px solid "+C.a2:"2px solid "+tc.s}}/>
+          {i===0&&<span style={{position:"absolute",top:-8,right:-8,fontSize:"1.2rem"}}>👑</span>}
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:"'Lilita One',cursive",color:"#fff",fontSize:"1.05rem"}}>{p.name}{p.pid===uid?" (Você)":""}</div>
+          <div style={{color:"rgba(255,255,255,0.6)",fontSize:"0.75rem"}}>{p.totalGuesses} palpites · Média: {p.avg}</div>
+        </div>
+        <div style={{fontFamily:"'Lilita One',cursive",fontSize:"1.1rem",color:i===0?"#fff":tc.s,textAlign:"right"}}>
+          {p.wins}<br/><span style={{fontSize:"0.65rem",fontFamily:"'Nunito',sans-serif"}}>{p.wins===1?"vitória":"vitórias"}</span>
+        </div>
+      </div>;})}
+    </div>
+    {isHost?<Btn onClick={playAgain} color={C.a2} style={{width:"100%",fontSize:"1.15rem",padding:"16px"}}>🔄 JOGAR NOVAMENTE</Btn>
+    :<p style={{textAlign:"center",color:C.tm,fontSize:"0.9rem"}}>O host pode iniciar nova rodada</p>}
+  </div>;
+}
+
+/* ─── MAIN APP ─────────────────────────── */
+function App(){
+  const [uid,setUid]=useState(null);
+  const [screen,setScreen]=useState("welcome");
+  const [setupMode,setSetupMode]=useState(null);
+  const [roomCode,setRoomCode]=useState(null);
+  const [roomData,setRoomData]=useState(null);
+  const [authReady,setAuthReady]=useState(false);
+
+  // Auth
+  useEffect(()=>{
+    auth.onAuthStateChanged(user=>{
+      if(user){setUid(user.uid);setAuthReady(true);}
+      else auth.signInAnonymously();
+    });
+  },[]);
+
+  // Room listener
+  useEffect(()=>{
+    if(!roomCode)return;
+    const ref=db.ref("rooms/"+roomCode);
+    const cb=ref.on("value",snap=>{
+      const data=snap.val();
+      if(data)setRoomData(data);
+    });
+    return()=>ref.off("value",cb);
+  },[roomCode]);
+
+  // Reconnect from session
+  useEffect(()=>{
+    if(!authReady)return;
+    const saved=sessionStorage.getItem("advinha_room");
+    if(saved){setRoomCode(saved);setScreen("room");}
+  },[authReady]);
+
+  // Sync screen with room status
+  useEffect(()=>{
+    if(roomCode)sessionStorage.setItem("advinha_room",roomCode);
+  },[roomCode]);
+
+  const handleRoomReady=(code)=>{setRoomCode(code);setScreen("room");};
+  const handleLeave=()=>{
+    if(roomCode&&uid){db.ref("rooms/"+roomCode+"/players/"+uid).remove();}
+    setRoomCode(null);setRoomData(null);setScreen("welcome");sessionStorage.removeItem("advinha_room");
+  };
+
+  if(!authReady)return <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}><Spinner/></div>;
+
+  const status=roomData?.config?.status;
+
+  return <div style={{minHeight:"100vh",minHeight:"100dvh",background:C.bg,position:"relative",overflow:"auto"}}>
+    <Orbs/>
+    <div style={{position:"relative",zIndex:1,paddingBottom:40}}>
+      {screen==="welcome"&&<WelcomeScreen onCreateRoom={()=>{setSetupMode("create");setScreen("setup");}} onJoinRoom={()=>{setSetupMode("join");setScreen("setup");}}/>}
+
+      {screen==="setup"&&<SetupScreen mode={setupMode} uid={uid} onReady={handleRoomReady} onBack={()=>setScreen("welcome")}/>}
+
+      {screen==="room"&&<>
+        {roomCode&&<div style={{textAlign:"right",padding:"8px 16px 0"}}>
+          <button onClick={handleLeave} style={{background:"none",border:"none",color:C.tm,cursor:"pointer",fontSize:"0.8rem",fontFamily:"'Nunito',sans-serif"}}>🚪 Sair</button>
+        </div>}
+        {(!status||status==="lobby")&&<LobbyScreen roomCode={roomCode} roomData={roomData} uid={uid}/>}
+        {status==="secrets"&&<SecretScreen roomCode={roomCode} roomData={roomData} uid={uid}/>}
+        {status==="playing"&&<MatchScreen roomCode={roomCode} roomData={roomData} uid={uid}/>}
+        {status==="results"&&<ResultsScreen roomCode={roomCode} roomData={roomData} uid={uid}/>}
+      </>}
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
